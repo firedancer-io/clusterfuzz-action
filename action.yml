@@ -1,0 +1,14 @@
+name: 'ClusterFuzz'
+description: 'GitHub Action that uploads fuzz artifacts to your ClusterFuzz installation.'
+author: '@marcus-jump'
+inputs:
+  dest-prefix:
+    description: 'Fuzz targets destination: should look like "gs://<bucket>/<objectpath>"". Action will drop artifacts at "gs://<bucket>/<objectpath>.<datetime>.zip"'
+    required: true
+  service-account-bundle:
+    description: 'JSON credential bundle for the service account that is allowed to interact with the Fuzz artifact bucket'
+  artifact-dir:
+    description: 'Path to directory containing fuzz targets.'
+  runs:
+    using: 'node16'
+    main: 'dist/index.js'
