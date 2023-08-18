@@ -1,15 +1,23 @@
 import * as core from '@actions/core'
 
 import fs from 'fs'
+import fsp from 'fs/promises'
+import { readdir } from 'node:fs/promises'
 import path from 'path'
 import { exec } from 'node:child_process'
 import { promisify } from 'util'
-import { Storage } from '@google-cloud/storage';
+import { Storage } from '@google-cloud/storage'
+import os from 'node:os'
+
+import getMakeVar from "./getMakeVar"
+import { stderr } from 'process'
+
+let execp = promisify(exec)
 
 async function run(): Promise<void> {
-  let execp = promisify(exec)
   try {
-    let now = Date.now();
+    // Save relevant inputs
+    const now = Date.now();
     const bucketName: string = core.getInput('bucket-name')
     const objectPrefix: string = core.getInput('object-prefix')
     const projectId: string = core.getInput('project-id')
@@ -20,9 +28,42 @@ async function run(): Promise<void> {
       throw new Error("cannot work with absolute paths")
     }
 
+    // Create a temporary staging directory
+    let fdfuzzdir = await fsp.mkdtemp(path.join(os.tmpdir(), 'fdfuzz-'));
+
+    // Prepare the copy options
+    let copyOptions : fs.CopyOptions = {
+      dereference: true,
+      recursive: true,
+    };
+
+    // Copy fuzzing targets in staging
+    await fsp.cp(artifactDir, fdfuzzdir, copyOptions);
+    // Merge seed corpus in staging
+    await fsp.cp("./corpus", fdfuzzdir, copyOptions);
+
     // [1] Zip the artifact directory
-    core.debug(`creating zip archive from ${artifactDir}`)
-    const { stdout, stderr } = await execp(`zip -r fuzztargets.zip ${artifactDir}`)
+    core.debug(`creating zip archive from ${fdfuzzdir}`)
+
+    var promiseResolve : (value : unknown) => void
+    var promiseReject : (reason? : any) => void;
+    var promise = new Promise(function(resolve, reject){
+      promiseResolve = resolve;
+      promiseReject = reject;
+    });
+
+    let childProcess = exec(`zip -r fuzztargets.zip ${fdfuzzdir}`, (err, stdout, stderr) => {
+      if (err) {
+        console.error(`[stderr] zip: ${stderr}`)
+        console.error(`[stdout] zip: ${stdout}`)
+        core.setFailed(err)
+        promiseReject(err)
+        return
+      }
+      promiseResolve(null)
+    })
+    await promise;
+
 
     // [2] Upload the artifact to GCS
     let objectPath = `${objectPrefix}-${now}.zip`

@@ -44,15 +44,18 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(2186));
 const fs_1 = __importDefault(__nccwpck_require__(7147));
+const promises_1 = __importDefault(__nccwpck_require__(3292));
 const path_1 = __importDefault(__nccwpck_require__(1017));
 const node_child_process_1 = __nccwpck_require__(7718);
 const util_1 = __nccwpck_require__(3837);
 const storage_1 = __nccwpck_require__(8174);
+const node_os_1 = __importDefault(__nccwpck_require__(612));
+let execp = (0, util_1.promisify)(node_child_process_1.exec);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
-        let execp = (0, util_1.promisify)(node_child_process_1.exec);
         try {
-            let now = Date.now();
+            // Save relevant inputs
+            const now = Date.now();
             const bucketName = core.getInput('bucket-name');
             const objectPrefix = core.getInput('object-prefix');
             const projectId = core.getInput('project-id');
@@ -61,9 +64,36 @@ function run() {
             if (path_1.default.isAbsolute(artifactDir)) {
                 throw new Error("cannot work with absolute paths");
             }
+            // Create a temporary staging directory
+            let fdfuzzdir = yield promises_1.default.mkdtemp(path_1.default.join(node_os_1.default.tmpdir(), 'fdfuzz-'));
+            // Prepare the copy options
+            let copyOptions = {
+                dereference: true,
+                recursive: true,
+            };
+            // Copy fuzzing targets in staging
+            yield promises_1.default.cp(artifactDir, fdfuzzdir, copyOptions);
+            // Merge seed corpus in staging
+            yield promises_1.default.cp("./corpus", fdfuzzdir, copyOptions);
             // [1] Zip the artifact directory
-            core.debug(`creating zip archive from ${artifactDir}`);
-            const { stdout, stderr } = yield execp(`zip -r fuzztargets.zip ${artifactDir}`);
+            core.debug(`creating zip archive from ${fdfuzzdir}`);
+            var promiseResolve;
+            var promiseReject;
+            var promise = new Promise(function (resolve, reject) {
+                promiseResolve = resolve;
+                promiseReject = reject;
+            });
+            let childProcess = (0, node_child_process_1.exec)(`zip -r fuzztargets.zip ${fdfuzzdir}`, (err, stdout, stderr) => {
+                if (err) {
+                    console.error(`[stderr] zip: ${stderr}`);
+                    console.error(`[stdout] zip: ${stdout}`);
+                    core.setFailed(err);
+                    promiseReject(err);
+                    return;
+                }
+                promiseResolve(null);
+            });
+            yield promise;
             // [2] Upload the artifact to GCS
             let objectPath = `${objectPrefix}-${now}.zip`;
             core.debug(`uploading archive to ClusterFuzz @ gs://${bucketName}/${objectPath}}`);
@@ -70732,6 +70762,14 @@ module.exports = require("fs");
 
 /***/ }),
 
+/***/ 3292:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("fs/promises");
+
+/***/ }),
+
 /***/ 3685:
 /***/ ((module) => {
 
@@ -70761,6 +70799,14 @@ module.exports = require("net");
 
 "use strict";
 module.exports = require("node:child_process");
+
+/***/ }),
+
+/***/ 612:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("node:os");
 
 /***/ }),
 
