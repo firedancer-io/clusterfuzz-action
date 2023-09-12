@@ -61,6 +61,7 @@ function run() {
             const projectId = core.getInput('project-id');
             const serviceAccountCredentials = core.getInput('service-account-credentials');
             const artifactDir = core.getInput('artifact-dir');
+            console.log(`Working in ${__dirname}`);
             if (path_1.default.isAbsolute(artifactDir)) {
                 throw new Error("cannot work with absolute paths");
             }
@@ -73,8 +74,15 @@ function run() {
             };
             // Copy fuzzing targets in staging
             yield promises_1.default.cp(artifactDir, fdfuzzdir, copyOptions);
+            // For each binary, rewrite the RPATH
+            let files = yield promises_1.default.readdir(fdfuzzdir);
+            for (let executable of files) {
+                yield rewriteRPATH(path_1.default.join(fdfuzzdir, executable, executable));
+            }
             // Merge seed corpus in staging
             yield promises_1.default.cp("./corpus", fdfuzzdir, copyOptions);
+            // Copy the shared objects
+            yield promises_1.default.cp("./opt/lib", `${fdfuzzdir}/lib`, { dereference: false, recursive: true });
             // [1] Zip the artifact directory
             core.debug(`creating zip archive from ${fdfuzzdir}`);
             var promiseResolve;
@@ -83,7 +91,10 @@ function run() {
                 promiseResolve = resolve;
                 promiseReject = reject;
             });
-            let childProcess = (0, node_child_process_1.exec)(`zip -r fuzztargets.zip ${fdfuzzdir}`, (err, stdout, stderr) => {
+            console.log(`running: "zip -r ${__dirname}/fuzztargets.zip ."`);
+            let childProcess = (0, node_child_process_1.exec)(`zip -r ${__dirname}/fuzztargets.zip .`, {
+                cwd: fdfuzzdir
+            }, (err, stdout, stderr) => {
                 if (err) {
                     console.error(`[stderr] zip: ${stderr}`);
                     console.error(`[stdout] zip: ${stdout}`);
@@ -106,7 +117,7 @@ function run() {
             // [2.2] Write the object
             let bucket = gcs.bucket(bucketName);
             const dstObject = bucket.file(objectPath);
-            let fileStream = fs_1.default.createReadStream('fuzztargets.zip');
+            let fileStream = fs_1.default.createReadStream(`${__dirname}/fuzztargets.zip`);
             let streamFileUpload = new Promise((resolve, reject) => {
                 fileStream.pipe(dstObject.createWriteStream()).on('finish', resolve).on('error', reject);
             });
@@ -116,6 +127,28 @@ function run() {
             if (error instanceof Error)
                 core.setFailed(error.message);
         }
+    });
+}
+function rewriteRPATH(executablePath) {
+    return __awaiter(this, void 0, void 0, function* () {
+        var promiseResolve;
+        var promiseReject;
+        var promise = new Promise(function (resolve, reject) {
+            promiseResolve = resolve;
+            promiseReject = reject;
+        });
+        console.log(`running: patchelf ${executablePath} --set-rpath $ORIGIN/../lib/`);
+        let childProcess = (0, node_child_process_1.exec)(`patchelf ${executablePath} --set-rpath '$ORIGIN'/../lib/`, (err, stdout, stderr) => {
+            if (err) {
+                console.error(`[stderr] patchelf: ${stderr}`);
+                console.error(`[stdout] patchelf: ${stdout}`);
+                core.setFailed(err);
+                promiseReject(err);
+                return;
+            }
+            promiseResolve(null);
+        });
+        yield promise;
     });
 }
 run();
