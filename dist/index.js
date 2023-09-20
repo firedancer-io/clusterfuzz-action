@@ -87,7 +87,7 @@ function run() {
                 }
             }
             // Copy the shared objects
-            yield promises_1.default.cp("./opt/lib", path_1.default.join(fdfuzzdir, "lib"), { dereference: false, recursive: true });
+            yield promises_1.default.cp("./opt/lib", path_1.default.join(fdfuzzdir, "lib"), { dereference: false, recursive: true, verbatimSymlinks: true });
             // For each of the shared objects, rewrite their RPATH
             let sos = yield promises_1.default.readdir(path_1.default.join(fdfuzzdir, "lib"), { withFileTypes: true });
             for (let so of sos) {

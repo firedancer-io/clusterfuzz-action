@@ -57,7 +57,7 @@ async function run(): Promise<void> {
     }
 
     // Copy the shared objects
-    await fsp.cp("./opt/lib", path.join(fdfuzzdir, "lib"), {dereference: false, recursive: true})
+    await fsp.cp("./opt/lib", path.join(fdfuzzdir, "lib"), {dereference: false, recursive: true, verbatimSymlinks: true})
 
     // For each of the shared objects, rewrite their RPATH
     let sos = await fsp.readdir(path.join(fdfuzzdir, "lib"), {withFileTypes: true})
