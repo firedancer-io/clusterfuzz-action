@@ -98,8 +98,10 @@ function run() {
             // [1] Zip the artifact directory
             core.debug(`creating zip archive from ${fdfuzzdir}`);
             yield zip(fdfuzzdir, ".", path_1.default.join(__dirname, "fuzztargets.zip"));
+            let { stdout } = yield execp("git rev-parse HEAD");
+            let commitHash = stdout.trim();
             // [2] Upload the artifact to GCS
-            let objectPath = `${objectPrefix}-${now}.zip`;
+            let objectPath = `${objectPrefix}-${now}-${commitHash}.zip`;
             core.debug(`uploading archive to ClusterFuzz @ gs://${bucketName}/${objectPath}}`);
             // [2.1] Create a new GCS client
             let credentials = JSON.parse(serviceAccountCredentials);

@@ -72,8 +72,11 @@ async function run(): Promise<void> {
     await zip(fdfuzzdir, ".", path.join(__dirname, "fuzztargets.zip"))
 
 
+    let { stdout } = await execp("git rev-parse HEAD")
+    let commitHash = stdout.trim()
+
     // [2] Upload the artifact to GCS
-    let objectPath = `${objectPrefix}-${now}.zip`
+    let objectPath = `${objectPrefix}-${now}-${commitHash}.zip`
     core.debug(`uploading archive to ClusterFuzz @ gs://${bucketName}/${objectPath}}`)
     
     // [2.1] Create a new GCS client
