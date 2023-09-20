@@ -16,6 +16,9 @@ inputs:
   artifact-dir:
     description: 'Path to directory containing fuzz targets.'
     required: true
+  qualifier:
+    description: Qualifier to add to the output target name
+    required: false
 runs:
   using: 'node16'
   main: 'dist/index.js'

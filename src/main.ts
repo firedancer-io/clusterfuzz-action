@@ -23,6 +23,7 @@ async function run(): Promise<void> {
     const projectId: string = core.getInput('project-id')
     const serviceAccountCredentials: string = core.getInput('service-account-credentials')
     const artifactDir: string = core.getInput('artifact-dir')
+    const qualifier: string = core.getInput('qualifier').trim()
 
     console.log(`Working in ${__dirname}`)
 
@@ -42,6 +43,21 @@ async function run(): Promise<void> {
     // Copy fuzzing targets in staging
     await fsp.cp(artifactDir, fdfuzzdir, copyOptions);
 
+    if (qualifier) {
+      // Rewrite the binary names to be suffixed by the qualifier
+      for (let entry of await fsp.readdir(fdfuzzdir, {
+        recursive: false,
+        withFileTypes: true,
+      })) {
+        console.log(`listed ${entry.name}`)
+        if (entry.isDirectory()) {
+          console.log(`renaming: ${path.join(fdfuzzdir, entry.name, entry.name)}, ${path.join(fdfuzzdir, entry.name, entry.name)}-${qualifier}`)
+          await fsp.rename(path.join(fdfuzzdir, entry.name, entry.name), `${path.join(fdfuzzdir, entry.name, entry.name)}-${qualifier}`)
+          await fsp.rename(path.join(fdfuzzdir, entry.name), `${path.join(fdfuzzdir, entry.name)}-${qualifier}`)
+      }
+    }
+  }
+
     // For each binary, rewrite the RPATH
     let files = await fsp.readdir(fdfuzzdir)
     for (let executable of files) {
@@ -52,7 +68,11 @@ async function run(): Promise<void> {
     let corporas = await fsp.readdir("./corpus", {withFileTypes: true})
     for (let corpus of corporas) {
       if (corpus.isDirectory()) {
-        await zip(path.join("./corpus", corpus.name), ".", path.join(fdfuzzdir, corpus.name, `${corpus.name}.zip`))
+        var artifactName = corpus.name;
+        if (qualifier) {
+          artifactName = `${artifactName}-${qualifier}`
+        }
+        await zip(path.join("./corpus", corpus.name), ".", path.join(fdfuzzdir, artifactName, `${artifactName}.zip`))
       }
     }
 
@@ -77,7 +97,7 @@ async function run(): Promise<void> {
 
     // [2] Upload the artifact to GCS
     let objectPath = `${objectPrefix}-${now}-${commitHash}.zip`
-    core.debug(`uploading archive to ClusterFuzz @ gs://${bucketName}/${objectPath}}`)
+    core.info(`uploading archive to ClusterFuzz under ${objectPath}}`)
     
     // [2.1] Create a new GCS client
     let credentials = JSON.parse(serviceAccountCredentials)
