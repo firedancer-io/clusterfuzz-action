@@ -67,11 +67,17 @@ async function run(): Promise<void> {
     // For each of the corpus directories, zip it and place the archive next to the fuzz target.
     let corporas = await fsp.readdir("./corpus", {withFileTypes: true})
     for (let corpus of corporas) {
-      if (corpus.isDirectory()) {
-        var artifactName = corpus.name;
-        if (qualifier) {
-          artifactName = `${artifactName}-${qualifier}`
-        }
+      var artifactName = corpus.name
+      var dirPath = path.join(fdfuzzdir, corpus.name)
+
+      if (qualifier) {
+        artifactName = `${artifactName}-${qualifier}`
+        dirPath = `${dirPath}-${qualifier}`
+      }
+    
+      var dirpath = path.join(fdfuzzdir, )
+      if (corpus.isDirectory() && fs.existsSync(dirPath)) {
+
         await zip(path.join("./corpus", corpus.name), ".", path.join(fdfuzzdir, artifactName, `${artifactName}.zip`))
       }
     }
@@ -88,7 +94,6 @@ async function run(): Promise<void> {
     }
 
     // [1] Zip the artifact directory
-    core.debug(`creating zip archive from ${fdfuzzdir}`)
     await zip(fdfuzzdir, ".", path.join(__dirname, "fuzztargets.zip"))
 
 

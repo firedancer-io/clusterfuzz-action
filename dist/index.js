@@ -97,11 +97,14 @@ function run() {
             // For each of the corpus directories, zip it and place the archive next to the fuzz target.
             let corporas = yield promises_1.default.readdir("./corpus", { withFileTypes: true });
             for (let corpus of corporas) {
-                if (corpus.isDirectory()) {
-                    var artifactName = corpus.name;
-                    if (qualifier) {
-                        artifactName = `${artifactName}-${qualifier}`;
-                    }
+                var artifactName = corpus.name;
+                var dirPath = path_1.default.join(fdfuzzdir, corpus.name);
+                if (qualifier) {
+                    artifactName = `${artifactName}-${qualifier}`;
+                    dirPath = `${dirPath}-${qualifier}`;
+                }
+                var dirpath = path_1.default.join(fdfuzzdir);
+                if (corpus.isDirectory() && fs_1.default.existsSync(dirPath)) {
                     yield zip(path_1.default.join("./corpus", corpus.name), ".", path_1.default.join(fdfuzzdir, artifactName, `${artifactName}.zip`));
                 }
             }
@@ -115,7 +118,6 @@ function run() {
                 }
             }
             // [1] Zip the artifact directory
-            core.debug(`creating zip archive from ${fdfuzzdir}`);
             yield zip(fdfuzzdir, ".", path_1.default.join(__dirname, "fuzztargets.zip"));
             let { stdout } = yield execp("git rev-parse HEAD");
             let commitHash = stdout.trim();
