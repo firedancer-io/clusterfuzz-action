@@ -2,22 +2,18 @@ import * as core from '@actions/core'
 
 import fs from 'fs'
 import fsp from 'fs/promises'
-import { readdir } from 'node:fs/promises'
 import path from 'path'
 import { exec } from 'node:child_process'
 import { promisify } from 'util'
 import { Storage } from '@google-cloud/storage'
 import os from 'node:os'
 
-import getMakeVar from "./getMakeVar"
-import { env, stderr } from 'process'
-
 let execp = promisify(exec)
 
 async function run(): Promise<void> {
   try {
     // Save relevant inputs
-    const now = Date.now();
+    const now = Date.now()
     const bucketName: string = core.getInput('bucket-name')
     const objectPrefix: string = core.getInput('object-prefix')
     const projectId: string = core.getInput('project-id')
@@ -25,23 +21,22 @@ async function run(): Promise<void> {
     const artifactDir: string = core.getInput('artifact-dir')
     const qualifier: string = core.getInput('qualifier').trim()
 
-    console.log(`Working in ${__dirname}`)
-
     if (path.isAbsolute(artifactDir)) {
       throw new Error("cannot work with absolute paths")
     }
 
     // Create a temporary staging directory
-    let fdfuzzdir = await fsp.mkdtemp(path.join(os.tmpdir(), 'fdfuzz-'));
+    let fdfuzzdir = await fsp.mkdtemp(path.join(os.tmpdir(), 'fdfuzz-'))
+    console.log('fdfuzzdir', fdfuzzdir)
 
     // Prepare the copy options
     let copyOptions : fs.CopyOptions = {
       dereference: true,
       recursive: true,
-    };
+    }
 
     // Copy fuzzing targets in staging
-    await fsp.cp(artifactDir, fdfuzzdir, copyOptions);
+    await fsp.cp(artifactDir, fdfuzzdir, copyOptions)
 
     if (qualifier) {
       // Rewrite the binary names to be suffixed by the qualifier
@@ -61,7 +56,7 @@ async function run(): Promise<void> {
     // For each binary, rewrite the RPATH
     let files = await fsp.readdir(fdfuzzdir)
     for (let executable of files) {
-      await rewriteRPATH(path.join(fdfuzzdir, executable, executable), "'$ORIGIN'/../lib/");
+      await rewriteRPATH(path.join(fdfuzzdir, executable, executable), "'$ORIGIN'/../lib/")
     }
 
     // For each of the corpus directories, zip it and place the archive next to the fuzz target.
@@ -78,7 +73,7 @@ async function run(): Promise<void> {
       var dirpath = path.join(fdfuzzdir, )
       if (corpus.isDirectory() && fs.existsSync(dirPath)) {
 
-        await zip(path.join("./corpus", corpus.name), ".", path.join(fdfuzzdir, artifactName, `${artifactName}.zip`))
+        await zip(path.join("./corpus", corpus.name), ".", path.join(fdfuzzdir, artifactName, `${artifactName}_seed_corpus.zip`))
       }
     }
 
@@ -89,7 +84,7 @@ async function run(): Promise<void> {
     let sos = await fsp.readdir(path.join(fdfuzzdir, "lib"), {withFileTypes: true})
     for (let so of sos) {
       if (!so.isSymbolicLink() && so.isFile() && !so.name.endsWith("a")) {
-        await rewriteRPATH(path.join(fdfuzzdir, "lib", so.name), "'$ORIGIN'");
+        await rewriteRPATH(path.join(fdfuzzdir, "lib", so.name), "'$ORIGIN'")
       }
     }
 
@@ -120,7 +115,7 @@ async function run(): Promise<void> {
       fileStream.pipe(dstObject.createWriteStream()).on('finish', resolve).on('error', reject)
     })
     
-    await streamFileUpload;
+    await streamFileUpload
 
   } catch (error) {
     if (error instanceof Error) core.setFailed(error.message)
@@ -129,11 +124,11 @@ async function run(): Promise<void> {
 
 async function rewriteRPATH(executablePath: string, newRPATH: string) {
   var promiseResolve : (value : unknown) => void
-  var promiseReject : (reason? : any) => void;
+  var promiseReject : (reason? : any) => void
   var promise = new Promise(function(resolve, reject){
-    promiseResolve = resolve;
-    promiseReject = reject;
-  });
+    promiseResolve = resolve
+    promiseReject = reject
+  })
 
   console.log(`running: patchelf ${executablePath} --set-rpath ${newRPATH}`)
   let childProcess = exec(
@@ -148,16 +143,16 @@ async function rewriteRPATH(executablePath: string, newRPATH: string) {
     }
     promiseResolve(null)
   })
-  await promise;
+  await promise
 }
 
 async function zip(workingDirectory: fs.PathLike, targetDirectory: fs.PathLike, dst: fs.PathLike) {
   var promiseResolve : (value : unknown) => void
-  var promiseReject : (reason? : any) => void;
+  var promiseReject : (reason? : any) => void
   var promise = new Promise(function(resolve, reject){
-    promiseResolve = resolve;
-    promiseReject = reject;
-  });
+    promiseResolve = resolve
+    promiseReject = reject
+  })
 
   console.log(`running: "zip -r ${dst} ." from ${workingDirectory}`)
   let childProcess = exec(
@@ -176,7 +171,7 @@ async function zip(workingDirectory: fs.PathLike, targetDirectory: fs.PathLike, 
     promiseResolve(null)
   })
 
-  return promise;
+  return promise
 }
 
 run()

@@ -62,12 +62,12 @@ function run() {
             const serviceAccountCredentials = core.getInput('service-account-credentials');
             const artifactDir = core.getInput('artifact-dir');
             const qualifier = core.getInput('qualifier').trim();
-            console.log(`Working in ${__dirname}`);
             if (path_1.default.isAbsolute(artifactDir)) {
                 throw new Error("cannot work with absolute paths");
             }
             // Create a temporary staging directory
             let fdfuzzdir = yield promises_1.default.mkdtemp(path_1.default.join(node_os_1.default.tmpdir(), 'fdfuzz-'));
+            console.log('fdfuzzdir', fdfuzzdir);
             // Prepare the copy options
             let copyOptions = {
                 dereference: true,
@@ -105,7 +105,7 @@ function run() {
                 }
                 var dirpath = path_1.default.join(fdfuzzdir);
                 if (corpus.isDirectory() && fs_1.default.existsSync(dirPath)) {
-                    yield zip(path_1.default.join("./corpus", corpus.name), ".", path_1.default.join(fdfuzzdir, artifactName, `${artifactName}.zip`));
+                    yield zip(path_1.default.join("./corpus", corpus.name), ".", path_1.default.join(fdfuzzdir, artifactName, `${artifactName}_seed_corpus.zip`));
                 }
             }
             // Copy the shared objects
